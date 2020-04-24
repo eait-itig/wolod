@@ -1,0 +1,83 @@
+.\" $OpenBSD$
+.\" 
+.\" Copyright (c) 2020 The University of Queensland
+.\"
+.\" Permission to use, copy, modify, and distribute this software for any
+.\" purpose with or without fee is hereby granted, provided that the above
+.\" copyright notice and this permission notice appear in all copies.
+.\"
+.\" THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+.\" WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+.\" MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+.\" ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+.\" WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+.\" ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+.\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+.\"
+.Dd $Mdocdate: April 24 2020$
+.Dt WOLOD 1
+.Os
+.Sh NAME
+.Nm wolod
+.Nd Wake-on-LAN (WoL) over DHCP
+.Sh SYNOPSIS
+.Nm wolod
+.Op Fl u
+.Op Fl l Ar local-address
+.Op Fl p Ar local-port
+.Fl h Ar mac-address
+.Ar relay-address
+.Op Ar relay-port
+.Sh DESCRIPTION
+.Nm
+encapsulates a Wake-on-LAN (Wol) payload in a DHCPINFORM message
+to be sent via a DHCP relay/helper for delivery to a host on an
+Ethernet network.
+.Pp
+The options are as follows:
+.Bl -tag -width Ds
+.It Fl h Ar mac-address
+Use the specified
+Target the Wake-on-LAN payload to the specified
+.Ar mac-address .
+.It Fl l Ar local-address
+Specify
+.Ar local-address
+as the local address when for sending the packet to the relay, and
+as the server address in the DHCP packet.
+.It Fl p Ar local-port
+Specify
+.Ar local-port
+as the local port when for sending the packet to the relay.
+By default
+.Nm
+uses
+bootps
+as the local-port.
+.It Fl u
+Instruct the DHCP Relay to send a unicast packet to the Ethernet network.
+The MAC address specified with
+.Fl h
+should be used by the relay as the destination MAC address.
+.It Ar relay-address
+Specify
+.Ar relay-address
+as the address of the relay the DHCP packet will be sent to.
+.Ar relay-port
+Specify
+relay-port as the port to send the DHCP packet to.
+By default
+.Nm
+uses
+bootps
+as the relay port.
+.El
+.Sh SEE ALSO
+.Xr dhcp-relay 8 ,
+.Xr dhcpd 8
+.Sh HISTORY
+.Nm
+was written by
+.An David Gwynne Aq Mt dlg@uq.edu.au
+for use in the Faculty of Engineering, Architecture and
+Information Technology at the University of Queensland.
