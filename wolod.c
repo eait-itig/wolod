@@ -46,7 +46,7 @@ usage(void)
 {
 	extern char *__progname;
 
-	fprintf(stderr, "usage: %s [-p port] [-l addr]"
+	fprintf(stderr, "usage: %s [-u] [-p port] [-l addr]"
 	    " -h eaddr relay [rport]\n", __progname);
 
 	exit(1);
