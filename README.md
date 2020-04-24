@@ -15,7 +15,3 @@ usage: wolod [-p port] [-l addr] -h eaddr relay [rport]
 
 - This builds and runs on OpenBSD
 - probably `eait-itig/dhcp-relay` on the last router
-
-## To do
-
-- write a manpage
