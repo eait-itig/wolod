@@ -145,7 +145,7 @@ dhcp_connection(const char *lhost, const char *lport,
 	freeaddrinfo(res0);
 
 	if (getsockname(s, (struct sockaddr *)&sin, &slen) == -1)
-		err(1, "getsockname %d", sin);
+		err(1, "getsockname");
 
 	if (sin.sin_family != PF_INET)
 		errx(1, "unexpected family");
@@ -159,7 +159,7 @@ dhcp_connection(const char *lhost, const char *lport,
 
 #define nitems(_a) (sizeof((_a)) / sizeof((_a)[0]))
 
-void
+static void
 dhcp_send_wol(int s, const struct ether_addr *ea,
     const struct in_addr *siaddr, const struct in_addr *giaddr,
     uint16_t flags)
