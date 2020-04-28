@@ -9,7 +9,7 @@ the need to enable directed broadcast on the final router.
 
 ```
 usage: wolod [-u] [-c client-address [-p local-port] [-P relay-port]
-             [-l local-address] [-r relay-address -h mac-address
+             [-l local-address] -r relay-address -h mac-address
 ```
 
 ## Requirements
