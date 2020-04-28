@@ -45,9 +45,11 @@ __dead static void
 usage(void)
 {
 	extern char *__progname;
+	int pad;
 
-	fprintf(stderr, "usage: %s [-u] [-p port] [-l addr]"
-	    " -h eaddr relay [rport]\n", __progname);
+	fprintf(stderr, "usage: %s%n [-u] [-p local-port] [-P relay-port ] "
+	    "[-l local-addr]\n", __progname, &pad);
+	fprintf(stderr, "%*s -r relay -h mac-addr\n", pad, " ");
 
 	exit(1);
 }
@@ -230,7 +232,7 @@ main(int argc, char *argv[])
 
 	int s;
 
-	while ((ch = getopt(argc, argv, "h:l:p:u")) != -1) {
+	while ((ch = getopt(argc, argv, "h:l:p:P:r:u")) != -1) {
 		switch (ch) {
 		case 'h':
 			ehost = optarg;
@@ -241,6 +243,12 @@ main(int argc, char *argv[])
 		case 'p':
 			lport = optarg;
 			break;
+		case 'P':
+			rport = optarg;
+			break;
+		case 'r':
+			rhost = optarg;
+			break;
 		case 'u':
 			flags = 0;
 			break;
@@ -250,23 +258,14 @@ main(int argc, char *argv[])
 		}
 	}
 
-	if (ehost == NULL)
+	if (ehost == NULL || rhost == NULL)
 		usage();
 
 	argc -= optind;
 	argv += optind;
 
-	switch (argc) {
-	case 2:
-		rport = argv[1];
-		/* FALLTHROUGH */
-	case 1:
-		rhost = argv[0];
-		break;
-	default:
+	if (argc > 0)
 		usage();
-		/* NOTREACHED */
-	}
 
 	s = dhcp_connection(lhost, lport, rhost, rport, &siaddr, &giaddr);
 	/* error handled by dhcp_connection */
