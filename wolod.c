@@ -221,7 +221,7 @@ main(int argc, char *argv[])
 
 	const char *ehost = NULL;
 	const char *lhost = NULL;
-	const char *lport = "bootps";
+	const char *lport = "0";
 	const char *rhost = NULL;
 	const char *rport = "bootps";
 	struct in_addr siaddr, giaddr;
