@@ -23,6 +23,7 @@
 .Sh SYNOPSIS
 .Nm wolod
 .Op Fl u
+.Op Fl c Ar client-address
 .Op Fl l Ar local-address
 .Op Fl p Ar local-port
 .Op Fl P Ar relay-port
@@ -36,6 +37,14 @@ Ethernet network.
 .Pp
 The options are as follows:
 .Bl -tag -width Ds
+.It Fl c Ar client-address
+Specify
+.Ar client-address
+as the IP address of the client machine on the Ethernet network.
+By default
+.Nm
+uses
+0.0.0.0.
 .It Fl h Ar mac-address
 Use the specified
 Target the Wake-on-LAN payload to the specified
@@ -60,12 +69,13 @@ bootps
 as the relay port.
 .It Fl u
 Instruct the DHCP Relay to send a unicast packet to the Ethernet network.
-The MAC address specified with
+IP and MAC addresses specified with
+.Fl c Ar client-address
 .Fl h Ar mac-address
-should be used by the relay as the destination MAC address.
+should be used by the relay as the destination addresses.
 .It Ar relay-address
 Specify
-.Fl r Ar relay-address
+.Ar relay-address
 as the address of the relay the DHCP packet will be sent to.
 .El
 .Sh SEE ALSO

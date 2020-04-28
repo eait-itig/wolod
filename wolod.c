@@ -47,9 +47,10 @@ usage(void)
 	extern char *__progname;
 	int pad;
 
-	fprintf(stderr, "usage: %s%n [-u] [-p local-port] [-P relay-port ] "
-	    "[-l local-addr]\n", __progname, &pad);
-	fprintf(stderr, "%*s -r relay -h mac-addr\n", pad, " ");
+	fprintf(stderr, "usage: %s%n [-u] [-c client-address] [-p local-port] "
+	    "[-P relay-port]\n", __progname, &pad);
+	fprintf(stderr, "%*s [-l local-addr] -r relay -h mac-addr\n",
+	    pad, " ");
 
 	exit(1);
 }
@@ -157,14 +158,44 @@ dhcp_connection(const char *lhost, const char *lport,
 	return (s);
 }
 
+static void
+dhcp_yiaddr(const char *name, struct in_addr *yiaddr)
+{
+	struct addrinfo hints, *res, *res0;
+	struct sockaddr_in *sin = NULL;
+	int error;
+
+	memset(&hints, 0, sizeof(hints));
+	hints.ai_family = PF_INET;
+	hints.ai_socktype = SOCK_DGRAM;
+	error = getaddrinfo(name, NULL, &hints, &res0);
+	if (error)
+		errx(1, "client address %s: %s", name, gai_strerror(error));
+
+	for (res = res0; res != NULL; res = res->ai_next) {
+		if (res->ai_family != PF_INET)
+			continue;
+
+		sin = (struct sockaddr_in *)res->ai_addr;
+		break;
+	}
+
+	if (sin == NULL)
+		errx(1, "client addresss %s: not found", name);
+
+	*yiaddr = sin->sin_addr;
+
+	freeaddrinfo(res0);
+}
+
 #define WOL_EA_NUM 17
 
 #define nitems(_a) (sizeof((_a)) / sizeof((_a)[0]))
 
 static void
 dhcp_send_wol(int s, const struct ether_addr *ea,
-    const struct in_addr *siaddr, const struct in_addr *giaddr,
-    uint16_t flags)
+    const struct in_addr *yiaddr, const struct in_addr *siaddr,
+    const struct in_addr *giaddr, uint16_t flags)
 {
 	struct iovec iov[4];
 	struct dhcp_packet p;
@@ -184,7 +215,7 @@ dhcp_send_wol(int s, const struct ether_addr *ea,
 	p.secs = htons(7);
 	p.flags = htons(flags);
 	//p.ciaddr = 0;
-	//p.yiaddr = 0;
+	p.yiaddr = *yiaddr;
 	p.siaddr = *siaddr;
 	p.giaddr = *giaddr;
 	memcpy(p.chaddr, ea, sizeof(*ea));
@@ -221,19 +252,23 @@ main(int argc, char *argv[])
 {
 	int ch;
 
+	const char *yhost = NULL;
 	const char *ehost = NULL;
 	const char *lhost = NULL;
 	const char *lport = "0";
 	const char *rhost = NULL;
 	const char *rport = "bootps";
-	struct in_addr siaddr, giaddr;
+	struct in_addr siaddr, giaddr, yiaddr = { 0 };
 	const struct ether_addr *ea;
 	uint16_t flags = BOOTP_BROADCAST;
 
 	int s;
 
-	while ((ch = getopt(argc, argv, "h:l:p:P:r:u")) != -1) {
+	while ((ch = getopt(argc, argv, "c:h:l:p:P:r:u")) != -1) {
 		switch (ch) {
+		case 'c':
+			yhost = optarg;
+			break;
 		case 'h':
 			ehost = optarg;
 			break;
@@ -270,11 +305,16 @@ main(int argc, char *argv[])
 	s = dhcp_connection(lhost, lport, rhost, rport, &siaddr, &giaddr);
 	/* error handled by dhcp_connection */
 
+	if (yhost != NULL) {
+		dhcp_yiaddr(yhost, &yiaddr);
+		/* yiaddr exits on errors */
+	}
+
 	ea = ether_aton(ehost);
 	if (ea == NULL)
 		err(1, "%s", ehost);
 
-	dhcp_send_wol(s, ea, &siaddr, &giaddr, flags);
+	dhcp_send_wol(s, ea, &yiaddr, &siaddr, &giaddr, flags);
 
 	return (0);
 }
