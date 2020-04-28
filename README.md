@@ -8,8 +8,8 @@ the need to enable directed broadcast on the final router.
 ## Usage
 
 ```
-usage: wolod [-u] [-p local-port] [-l local-address] -h mac-address
-             relay-address [relay-port]
+usage: wolod [-u] [-c client-address [-p local-port] [-P relay-port]
+             [-l local-address] [-r relay-address -h mac-address
 ```
 
 ## Requirements
