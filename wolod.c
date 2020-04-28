@@ -56,13 +56,11 @@ usage(void)
 }
 
 static int
-dhcp_connect(int s, const char *rhost, const char *rport,
-    struct in_addr *giaddr)
+dhcp_connect(int s, const char *rhost, const char *rport)
 {
 	struct addrinfo hints, *res, *res0;
 	int error;
 	int connected = 0;
-	struct sockaddr_in *sin;
 
 	memset(&hints, 0, sizeof(hints));
 	hints.ai_family = PF_INET;
@@ -79,9 +77,6 @@ dhcp_connect(int s, const char *rhost, const char *rport,
 		if (connect(s, res->ai_addr, res->ai_addrlen) == -1)
 			continue;
 
-		sin = (struct sockaddr_in *)res->ai_addr;
-		*giaddr = sin->sin_addr;
-
 		connected = 1;
 		break;
 	}
@@ -96,16 +91,13 @@ dhcp_connect(int s, const char *rhost, const char *rport,
 
 static int
 dhcp_connection(const char *lhost, const char *lport,
-    const char *rhost, const char *rport,
-    struct in_addr *siaddr, struct in_addr *giaddr)
+    const char *rhost, const char *rport)
 {
 	struct addrinfo hints, *res, *res0;
 	int error;
 	int serrno = 0;
 	int s = -1;
 	const char *cause = NULL;
-	struct sockaddr_in sin;
-	socklen_t slen = sizeof(sin);
 
 	memset(&hints, 0, sizeof(hints));
 	hints.ai_family = PF_INET;
@@ -131,7 +123,7 @@ dhcp_connection(const char *lhost, const char *lport,
 			continue;
 		}
 
-		if (dhcp_connect(s, rhost, rport, giaddr) == -1) {
+		if (dhcp_connect(s, rhost, rport) == -1) {
 			cause = "connect";
 			serrno = errno;
 			close(s);
@@ -146,14 +138,6 @@ dhcp_connection(const char *lhost, const char *lport,
 		errc(1, serrno, "%s", cause);
 
 	freeaddrinfo(res0);
-
-	if (getsockname(s, (struct sockaddr *)&sin, &slen) == -1)
-		err(1, "getsockname");
-
-	if (sin.sin_family != PF_INET)
-		errx(1, "unexpected family");
-
-	*siaddr = sin.sin_addr;
 
 	return (s);
 }
@@ -258,6 +242,8 @@ main(int argc, char *argv[])
 	const char *lport = "0";
 	const char *rhost = NULL;
 	const char *rport = "bootps";
+	struct sockaddr_in sin;
+	socklen_t slen;
 	struct in_addr siaddr, giaddr, yiaddr = { 0 };
 	const struct ether_addr *ea;
 	uint16_t flags = BOOTP_BROADCAST;
@@ -302,7 +288,7 @@ main(int argc, char *argv[])
 	if (argc > 0)
 		usage();
 
-	s = dhcp_connection(lhost, lport, rhost, rport, &siaddr, &giaddr);
+	s = dhcp_connection(lhost, lport, rhost, rport);
 	/* error handled by dhcp_connection */
 
 	if (yhost != NULL) {
@@ -313,6 +299,16 @@ main(int argc, char *argv[])
 	ea = ether_aton(ehost);
 	if (ea == NULL)
 		err(1, "%s", ehost);
+
+	slen = sizeof(sin);
+	if (getsockname(s, (struct sockaddr *)&sin, &slen) == -1)
+		err(1, "getsockname");
+	siaddr = sin.sin_addr;
+
+	slen = sizeof(sin);
+	if (getpeername(s, (struct sockaddr *)&sin, &slen) == -1)
+		err(1, "getsockname");
+	giaddr = sin.sin_addr;
 
 	dhcp_send_wol(s, ea, &yiaddr, &siaddr, &giaddr, flags);
 
