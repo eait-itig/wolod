@@ -98,7 +98,7 @@ dhcp_connection(const char *lhost, const char *lport,
 {
 	struct addrinfo hints, *res, *res0;
 	int error;
-	int serrno;
+	int serrno = 0;
 	int s = -1;
 	const char *cause = NULL;
 	struct sockaddr_in sin;
