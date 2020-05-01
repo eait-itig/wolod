@@ -24,6 +24,7 @@
 .Nm wolod
 .Op Fl u
 .Op Fl c Ar client-address
+.Op Fl H Ar chaddr
 .Op Fl l Ar local-address
 .Op Fl p Ar local-port
 .Op Fl P Ar relay-port
@@ -31,7 +32,7 @@
 .Fl r Ar relay-address
 .Sh DESCRIPTION
 .Nm
-encapsulates a Wake-on-LAN (Wol) payload in a DHCPINFORM message
+encapsulates a Wake-on-LAN (Wol) payload in a DHCPACK message
 to be sent via a DHCP relay/helper for delivery to a host on an
 Ethernet network.
 .Pp
@@ -49,6 +50,15 @@ uses
 Use the specified
 Target the Wake-on-LAN payload to the specified
 .Ar mac-address .
+.It Fl H Ar chaddr
+Use the specified
+.Ar chaddr
+as the client hardware address in the DHCP packate.
+By default
+.Nm
+uses the MAC address specified with
+.Fl h
+as the client hardware address.
 .It Fl l Ar local-address
 Specify
 .Ar local-address

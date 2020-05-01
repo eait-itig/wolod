@@ -47,9 +47,11 @@ usage(void)
 	extern char *__progname;
 	int pad;
 
-	fprintf(stderr, "usage: %s%n [-u] [-c client-address] [-p local-port] "
-	    "[-P relay-port]\n", __progname, &pad);
-	fprintf(stderr, "%*s [-l local-addr] -r relay -h mac-addr\n",
+	fprintf(stderr, "usage: %s%n [-u] [-c client-address] [-H chaddr]\n",
+	    __progname, &pad);
+	fprintf(stderr, "%*s [-l local-addr] [-p local-port] [-P relay-port]\n",
+	    pad, " ");
+	fprintf(stderr, "%*s -r relay -h mac-addr\n",
 	    pad, " ");
 
 	exit(1);
@@ -177,13 +179,13 @@ dhcp_yiaddr(const char *name, struct in_addr *yiaddr)
 #define nitems(_a) (sizeof((_a)) / sizeof((_a)[0]))
 
 static void
-dhcp_send_wol(int s, const struct ether_addr *ea,
+dhcp_send_wol(int s, const struct ether_addr *Ha, const struct ether_addr *ea,
     const struct in_addr *yiaddr, const struct in_addr *siaddr,
     const struct in_addr *giaddr, uint16_t flags)
 {
 	struct iovec iov[4];
 	struct dhcp_packet p;
-	uint8_t dho[] = { DHO_DHCP_MESSAGE_TYPE, 1, DHCPINFORM };
+	uint8_t dho[] = { DHO_DHCP_MESSAGE_TYPE, 1, 0xff };
 	uint8_t wol[2 + (WOL_EA_NUM * sizeof(*ea))];
 	uint8_t end[] = { DHO_END, 0 };
 	unsigned int i;
@@ -193,7 +195,7 @@ dhcp_send_wol(int s, const struct ether_addr *ea,
 
 	p.op = BOOTREPLY;
 	p.htype = HTYPE_ETHER;
-	p.hlen = sizeof(*ea);
+	p.hlen = sizeof(*Ha);
 	p.hops = 1;
 	p.xid = htonl(arc4random());
 	p.secs = htons(7);
@@ -202,7 +204,7 @@ dhcp_send_wol(int s, const struct ether_addr *ea,
 	p.yiaddr = *yiaddr;
 	p.siaddr = *siaddr;
 	p.giaddr = *giaddr;
-	memcpy(p.chaddr, ea, sizeof(*ea));
+	memcpy(p.chaddr, Ha, sizeof(*Ha));
 	memcpy(p.cookie, DHCP_OPTIONS_COOKIE, DHCP_OPTIONS_COOKIE_LEN);
 
 	wol[0] = DHO_VENDOR_ENCAPSULATED_OPTIONS;
@@ -231,6 +233,20 @@ dhcp_send_wol(int s, const struct ether_addr *ea,
 		err(1, "write");
 }
 
+static int
+ether_resolve(struct ether_addr *res, const char *name)
+{
+	struct ether_addr *ea;
+
+	ea = ether_aton(name);
+	if (ea == NULL)
+		return (-1);
+
+	*res = *ea;
+
+	return (0);
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -238,6 +254,7 @@ main(int argc, char *argv[])
 
 	const char *yhost = NULL;
 	const char *ehost = NULL;
+	const char *Hhost = NULL;
 	const char *lhost = NULL;
 	const char *lport = "0";
 	const char *rhost = NULL;
@@ -245,18 +262,21 @@ main(int argc, char *argv[])
 	struct sockaddr_in sin;
 	socklen_t slen;
 	struct in_addr siaddr, giaddr, yiaddr = { 0 };
-	const struct ether_addr *ea;
+	struct ether_addr ea, Ha;
 	uint16_t flags = BOOTP_BROADCAST;
 
 	int s;
 
-	while ((ch = getopt(argc, argv, "c:h:l:p:P:r:u")) != -1) {
+	while ((ch = getopt(argc, argv, "c:h:H:l:p:P:r:u")) != -1) {
 		switch (ch) {
 		case 'c':
 			yhost = optarg;
 			break;
 		case 'h':
 			ehost = optarg;
+			break;
+		case 'H':
+			Hhost = optarg;
 			break;
 		case 'l':
 			lhost = optarg;
@@ -288,6 +308,9 @@ main(int argc, char *argv[])
 	if (argc > 0)
 		usage();
 
+	if (Hhost != NULL && flags == 0)
+		errx(1, "-H and -u are incompatible");
+
 	s = dhcp_connection(lhost, lport, rhost, rport);
 	/* error handled by dhcp_connection */
 
@@ -296,9 +319,13 @@ main(int argc, char *argv[])
 		/* yiaddr exits on errors */
 	}
 
-	ea = ether_aton(ehost);
-	if (ea == NULL)
+	if (ether_resolve(&ea, ehost) == -1)
 		err(1, "%s", ehost);
+
+	if (Hhost == NULL)
+		Ha = ea;
+	else if (ether_resolve(&Ha, Hhost) == -1)
+		err(1, "%s", Hhost);
 
 	slen = sizeof(sin);
 	if (getsockname(s, (struct sockaddr *)&sin, &slen) == -1)
@@ -310,7 +337,7 @@ main(int argc, char *argv[])
 		err(1, "getsockname");
 	giaddr = sin.sin_addr;
 
-	dhcp_send_wol(s, ea, &yiaddr, &siaddr, &giaddr, flags);
+	dhcp_send_wol(s, &Ha, &ea, &yiaddr, &siaddr, &giaddr, flags);
 
 	return (0);
 }
