@@ -28,6 +28,7 @@
 .Op Fl l Ar local-address
 .Op Fl p Ar local-port
 .Op Fl P Ar relay-port
+.Op Fl t Ar dhcp-msg-type
 .Fl h Ar mac-address
 .Fl r Ar relay-address
 .Sh DESCRIPTION
@@ -81,6 +82,25 @@ as the relay port.
 Specify
 .Ar relay-address
 as the address of the relay the DHCP packet will be sent to.
+.It Fl t Ar dhcp-msg-type
+Specify
+.Ar dhcp-msg-type
+as the value of the DHCP Message option.
+The argument can be a number between 0 and 255 inclusive, or
+.Ic discover ,
+.Ic offer ,
+.Ic request ,
+.Ic decline ,
+.Ic ack ,
+.Ic nak ,
+.Ic release ,
+or
+.Ic inform .
+By default
+.Nm
+uses 255 to try and avoid misuse of the message by compliant DHCP
+clients, and to attempt to bypass handling by DHCP snooping
+implementations on switches.
 .It Fl u
 Instruct the DHCP Relay to send a unicast packet to the Ethernet network.
 IP and MAC addresses specified with

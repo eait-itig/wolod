@@ -51,7 +51,7 @@ usage(void)
 	    __progname, &pad);
 	fprintf(stderr, "%*s [-l local-addr] [-p local-port] [-P relay-port]\n",
 	    pad, " ");
-	fprintf(stderr, "%*s -r relay -h mac-addr\n",
+	fprintf(stderr, "%*s [-t type] -r relay -h mac-addr\n",
 	    pad, " ");
 
 	exit(1);
@@ -181,11 +181,11 @@ dhcp_yiaddr(const char *name, struct in_addr *yiaddr)
 static void
 dhcp_send_wol(int s, const struct ether_addr *Ha, const struct ether_addr *ea,
     const struct in_addr *yiaddr, const struct in_addr *siaddr,
-    const struct in_addr *giaddr, uint16_t flags)
+    const struct in_addr *giaddr, uint16_t flags, uint8_t dtype)
 {
 	struct iovec iov[4];
 	struct dhcp_packet p;
-	uint8_t dho[] = { DHO_DHCP_MESSAGE_TYPE, 1, 0xff };
+	uint8_t dho[] = { DHO_DHCP_MESSAGE_TYPE, 1, dtype };
 	uint8_t wol[2 + (WOL_EA_NUM * sizeof(*ea))];
 	uint8_t end[] = { DHO_END, 0 };
 	unsigned int i;
@@ -233,6 +233,38 @@ dhcp_send_wol(int s, const struct ether_addr *Ha, const struct ether_addr *ea,
 		err(1, "write");
 }
 
+#define streq(_a, _b) (strcmp((_a), (_b)) == 0)
+
+static uint8_t
+dhcp_type(const char *arg)
+{
+	uint8_t rv;
+	const char *errstr;
+
+	if (streq(arg, "discover"))
+		return (DHCPDISCOVER);
+	if (streq(arg, "offer"))
+		return (DHCPOFFER);
+	if (streq(arg, "request"))
+		return (DHCPREQUEST);
+	if (streq(arg, "decline"))
+		return (DHCPDECLINE);
+	if (streq(arg, "ack"))
+		return (DHCPACK);
+	if (streq(arg, "nak") || streq(arg, "nack"))
+		return (DHCPNAK);
+	if (streq(arg, "release"))
+		return (DHCPRELEASE);
+	if (streq(arg, "inform"))
+		return (DHCPINFORM);
+
+	rv = strtonum(arg, 0, 0xff, &errstr);
+	if (errstr != NULL)
+		errx(1, "DHCP type %s: %s", arg, errstr);
+
+	return (rv);
+}
+
 static int
 ether_resolve(struct ether_addr *res, const char *name)
 {
@@ -264,10 +296,11 @@ main(int argc, char *argv[])
 	struct in_addr siaddr, giaddr, yiaddr = { 0 };
 	struct ether_addr ea, Ha;
 	uint16_t flags = BOOTP_BROADCAST;
+	uint8_t dtype = 0xff;
 
 	int s;
 
-	while ((ch = getopt(argc, argv, "c:h:H:l:p:P:r:u")) != -1) {
+	while ((ch = getopt(argc, argv, "c:h:H:l:p:P:r:t:u")) != -1) {
 		switch (ch) {
 		case 'c':
 			yhost = optarg;
@@ -289,6 +322,9 @@ main(int argc, char *argv[])
 			break;
 		case 'r':
 			rhost = optarg;
+			break;
+		case 't':
+			dtype = dhcp_type(optarg);
 			break;
 		case 'u':
 			flags = 0;
@@ -337,7 +373,7 @@ main(int argc, char *argv[])
 		err(1, "getsockname");
 	giaddr = sin.sin_addr;
 
-	dhcp_send_wol(s, &Ha, &ea, &yiaddr, &siaddr, &giaddr, flags);
+	dhcp_send_wol(s, &Ha, &ea, &yiaddr, &siaddr, &giaddr, flags, dtype);
 
 	return (0);
 }
