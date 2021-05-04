@@ -183,9 +183,10 @@ dhcp_send_wol(int s, const struct ether_addr *Ha, const struct ether_addr *ea,
     const struct in_addr *yiaddr, const struct in_addr *siaddr,
     const struct in_addr *giaddr, uint16_t flags, uint8_t dtype)
 {
-	struct iovec iov[4];
+	struct iovec iov[5];
 	struct dhcp_packet p;
 	uint8_t dho[] = { DHO_DHCP_MESSAGE_TYPE, 1, dtype };
+	uint8_t sid[2 + sizeof(*siaddr)];
 	uint8_t wol[2 + (WOL_EA_NUM * sizeof(*ea))];
 	uint8_t end[] = { DHO_END, 0 };
 	unsigned int i;
@@ -207,6 +208,10 @@ dhcp_send_wol(int s, const struct ether_addr *Ha, const struct ether_addr *ea,
 	memcpy(p.chaddr, Ha, sizeof(*Ha));
 	memcpy(p.cookie, DHCP_OPTIONS_COOKIE, DHCP_OPTIONS_COOKIE_LEN);
 
+	sid[0] = DHO_DHCP_SERVER_IDENTIFIER;
+	sid[1] = sizeof(*siaddr);
+	memcpy(sid + 2, siaddr, sizeof(*siaddr));
+
 	wol[0] = DHO_VENDOR_ENCAPSULATED_OPTIONS;
 	wol[1] = sizeof(*ea) * WOL_EA_NUM;
 
@@ -224,10 +229,12 @@ dhcp_send_wol(int s, const struct ether_addr *Ha, const struct ether_addr *ea,
 	iov[0].iov_len = sizeof(p);
 	iov[1].iov_base = dho;
 	iov[1].iov_len = sizeof(dho);
-	iov[2].iov_base = wol;
-	iov[2].iov_len = sizeof(wol);
-	iov[3].iov_base = end;
-	iov[3].iov_len = sizeof(end);
+	iov[2].iov_base = sid;
+	iov[2].iov_len = sizeof(sid);
+	iov[3].iov_base = wol;
+	iov[3].iov_len = sizeof(wol);
+	iov[4].iov_base = end;
+	iov[4].iov_len = sizeof(end);
 
 	if (writev(s, iov, nitems(iov)) == -1)
 		err(1, "write");
