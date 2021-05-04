@@ -30,6 +30,7 @@
 .Op Fl P Ar relay-port
 .Op Fl s Ar siaddr
 .Op Fl t Ar dhcp-msg-type
+.Op Fl T Ar lease-time
 .Fl h Ar mac-address
 .Fl r Ar relay-address
 .Sh DESCRIPTION
@@ -109,6 +110,13 @@ By default
 uses 255 to try and avoid misuse of the message by compliant DHCP
 clients, and to attempt to bypass handling by DHCP snooping
 implementations on switches.
+.It Fl T Ar lease-time
+Specify
+.Ar lease-time
+for use in a DHCP lease time option.
+Setting the lease time to 0 disables the inclusion of the lease
+time option in the DHCP packet.
+The lease time is 0 by default.
 .It Fl u
 Instruct the DHCP Relay to send a unicast packet to the Ethernet network.
 IP and MAC addresses specified with

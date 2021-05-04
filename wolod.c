@@ -38,6 +38,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <err.h>
+#include <assert.h>
 
 #include "dhcp.h"
 
@@ -45,14 +46,12 @@ __dead static void
 usage(void)
 {
 	extern char *__progname;
-	int pad;
 
-	fprintf(stderr, "usage: %s%n [-u] [-c client-address] [-H chaddr]\n",
-	    __progname, &pad);
-	fprintf(stderr, "%*s [-l local-addr] [-p local-port] [-P relay-port]\n",
-	    pad, " ");
-	fprintf(stderr, "%*s [-s siaddr] [-t type] -r relay -h mac-addr\n",
-	    pad, " ");
+	fprintf(stderr, "usage: %s [-u] [-c client-address] [-H chaddr]\n",
+	    __progname);
+	fprintf(stderr, "\t[-l local-addr] [-p local-port] [-P relay-port]\n");
+	fprintf(stderr, "\t[-s siaddr] [-t type] [-T lt]"
+	    " -r relay -h mac-addr\n");
 
 	exit(1);
 }
@@ -181,12 +180,13 @@ ip_resolve(const char *name, struct in_addr *addr)
 static void
 dhcp_send_wol(int s, const struct ether_addr *Ha, const struct ether_addr *ea,
     const struct in_addr *yiaddr, const struct in_addr *siaddr,
-    const struct in_addr *giaddr, uint16_t flags, uint8_t dtype)
+    const struct in_addr *giaddr, uint16_t flags, uint8_t dtype, uint32_t tm)
 {
-	struct iovec iov[5];
+	struct iovec iov[6];
 	struct dhcp_packet p;
 	uint8_t dho[] = { DHO_DHCP_MESSAGE_TYPE, 1, dtype };
 	uint8_t sid[2 + sizeof(*siaddr)];
+	uint8_t lt[2 + sizeof(tm)];
 	uint8_t wol[2 + (WOL_EA_NUM * sizeof(*ea))];
 	uint8_t end[] = { DHO_END, 0 };
 	unsigned int i;
@@ -225,18 +225,40 @@ dhcp_send_wol(int s, const struct ether_addr *Ha, const struct ether_addr *ea,
 		t += sizeof(*ea);
 	}
 
-	iov[0].iov_base = &p;
-	iov[0].iov_len = sizeof(p);
-	iov[1].iov_base = dho;
-	iov[1].iov_len = sizeof(dho);
-	iov[2].iov_base = sid;
-	iov[2].iov_len = sizeof(sid);
-	iov[3].iov_base = wol;
-	iov[3].iov_len = sizeof(wol);
-	iov[4].iov_base = end;
-	iov[4].iov_len = sizeof(end);
+	i = 0;
+	iov[i].iov_base = &p;
+	iov[i].iov_len = sizeof(p);
+	i++;
 
-	if (writev(s, iov, nitems(iov)) == -1)
+	iov[i].iov_base = dho;
+	iov[i].iov_len = sizeof(dho);
+	i++;
+
+	iov[i].iov_base = sid;
+	iov[i].iov_len = sizeof(sid);
+	i++;
+
+	if (tm != htonl(0)) {
+		lt[0] = DHO_DHCP_LEASE_TIME;
+		lt[1] = sizeof(tm);
+		memcpy(lt + 2, &tm, sizeof(tm));
+
+		iov[i].iov_base = lt;
+		iov[i].iov_len = sizeof(lt);
+		i++;
+	}
+
+	iov[i].iov_base = wol;
+	iov[i].iov_len = sizeof(wol);
+	i++;
+
+	iov[i].iov_base = end;
+	iov[i].iov_len = sizeof(end);
+	i++;
+
+	assert(i <= nitems(iov));
+
+	if (writev(s, iov, i) == -1)
 		err(1, "write");
 }
 
@@ -272,6 +294,19 @@ dhcp_type(const char *arg)
 	return (rv);
 }
 
+static uint32_t
+lease_time(const char *arg)
+{
+	uint32_t rv;
+	const char *errstr;
+
+	rv = strtonum(arg, 0, 60 * 60 * 24 * 7, &errstr);
+	if (errstr != NULL)
+		errx(1, "lease time %s: %s", arg, errstr);
+
+	return (htonl(rv));
+}
+
 static int
 ether_resolve(struct ether_addr *res, const char *name)
 {
@@ -305,10 +340,11 @@ main(int argc, char *argv[])
 	struct ether_addr ea, Ha;
 	uint16_t flags = BOOTP_BROADCAST;
 	uint8_t dtype = 0xff;
+	uint32_t lt = htonl(0);
 
 	int s;
 
-	while ((ch = getopt(argc, argv, "c:h:H:l:p:P:r:s:t:u")) != -1) {
+	while ((ch = getopt(argc, argv, "c:h:H:l:p:P:r:s:t:T:u")) != -1) {
 		switch (ch) {
 		case 'c':
 			yhost = optarg;
@@ -336,6 +372,9 @@ main(int argc, char *argv[])
 			break;
 		case 't':
 			dtype = dhcp_type(optarg);
+			break;
+		case 'T':
+			lt = lease_time(optarg);
 			break;
 		case 'u':
 			flags = 0;
@@ -387,7 +426,8 @@ main(int argc, char *argv[])
 		err(1, "getsockname");
 	giaddr = sin.sin_addr;
 
-	dhcp_send_wol(s, &Ha, &ea, &yiaddr, &siaddr, &giaddr, flags, dtype);
+	dhcp_send_wol(s, &Ha, &ea, &yiaddr, &siaddr, &giaddr, flags, dtype,
+	    lt);
 
 	return (0);
 }
