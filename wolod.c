@@ -51,7 +51,7 @@ usage(void)
 	    __progname, &pad);
 	fprintf(stderr, "%*s [-l local-addr] [-p local-port] [-P relay-port]\n",
 	    pad, " ");
-	fprintf(stderr, "%*s [-t type] -r relay -h mac-addr\n",
+	fprintf(stderr, "%*s [-s siaddr] [-t type] -r relay -h mac-addr\n",
 	    pad, " ");
 
 	exit(1);
@@ -145,7 +145,7 @@ dhcp_connection(const char *lhost, const char *lport,
 }
 
 static void
-dhcp_yiaddr(const char *name, struct in_addr *yiaddr)
+ip_resolve(const char *name, struct in_addr *addr)
 {
 	struct addrinfo hints, *res, *res0;
 	struct sockaddr_in *sin = NULL;
@@ -169,7 +169,7 @@ dhcp_yiaddr(const char *name, struct in_addr *yiaddr)
 	if (sin == NULL)
 		errx(1, "client addresss %s: not found", name);
 
-	*yiaddr = sin->sin_addr;
+	*addr = sin->sin_addr;
 
 	freeaddrinfo(res0);
 }
@@ -290,6 +290,7 @@ main(int argc, char *argv[])
 	const char *lhost = NULL;
 	const char *lport = "0";
 	const char *rhost = NULL;
+	const char *shost = NULL;
 	const char *rport = "bootps";
 	struct sockaddr_in sin;
 	socklen_t slen;
@@ -300,7 +301,7 @@ main(int argc, char *argv[])
 
 	int s;
 
-	while ((ch = getopt(argc, argv, "c:h:H:l:p:P:r:t:u")) != -1) {
+	while ((ch = getopt(argc, argv, "c:h:H:l:p:P:r:s:t:u")) != -1) {
 		switch (ch) {
 		case 'c':
 			yhost = optarg;
@@ -322,6 +323,9 @@ main(int argc, char *argv[])
 			break;
 		case 'r':
 			rhost = optarg;
+			break;
+		case 's':
+			shost = optarg;
 			break;
 		case 't':
 			dtype = dhcp_type(optarg);
@@ -351,8 +355,8 @@ main(int argc, char *argv[])
 	/* error handled by dhcp_connection */
 
 	if (yhost != NULL) {
-		dhcp_yiaddr(yhost, &yiaddr);
-		/* yiaddr exits on errors */
+		ip_resolve(yhost, &yiaddr);
+		/* ip_resolve exits on errors */
 	}
 
 	if (ether_resolve(&ea, ehost) == -1)
@@ -363,10 +367,13 @@ main(int argc, char *argv[])
 	else if (ether_resolve(&Ha, Hhost) == -1)
 		err(1, "%s", Hhost);
 
-	slen = sizeof(sin);
-	if (getsockname(s, (struct sockaddr *)&sin, &slen) == -1)
-		err(1, "getsockname");
-	siaddr = sin.sin_addr;
+	if (shost == NULL) {
+		slen = sizeof(sin);
+		if (getsockname(s, (struct sockaddr *)&sin, &slen) == -1)
+			err(1, "getsockname");
+		siaddr = sin.sin_addr;
+	} else
+		ip_resolve(shost, &siaddr);
 
 	slen = sizeof(sin);
 	if (getpeername(s, (struct sockaddr *)&sin, &slen) == -1)

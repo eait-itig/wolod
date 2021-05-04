@@ -28,6 +28,7 @@
 .Op Fl l Ar local-address
 .Op Fl p Ar local-port
 .Op Fl P Ar relay-port
+.Op Fl s Ar siaddr
 .Op Fl t Ar dhcp-msg-type
 .Fl h Ar mac-address
 .Fl r Ar relay-address
@@ -82,6 +83,13 @@ as the relay port.
 Specify
 .Ar relay-address
 as the address of the relay the DHCP packet will be sent to.
+.It Fl s Ar siaddr
+Specify
+.Ar siaddr
+as the BOOTP/DHCP server address used in the DHCP packet.
+By default
+.Nm
+uses the source IP address the DHCP packet is sent with.
 .It Fl t Ar dhcp-msg-type
 Specify
 .Ar dhcp-msg-type
