@@ -22,7 +22,7 @@
 .Nd Wake-on-LAN (WoL) over DHCP
 .Sh SYNOPSIS
 .Nm wolod
-.Op Fl u
+.Op Fl Bu
 .Op Fl c Ar client-address
 .Op Fl H Ar chaddr
 .Op Fl l Ar local-address
@@ -41,6 +41,8 @@ Ethernet network.
 .Pp
 The options are as follows:
 .Bl -tag -width Ds
+.It Fl B
+Use a BOOTP message instead of a DHCP message to encapsulate the WoL payload.
 .It Fl c Ar client-address
 Specify
 .Ar client-address

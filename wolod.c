@@ -42,12 +42,30 @@
 
 #include "dhcp.h"
 
+struct bootp_packet {
+	uint8_t		op;		/* Message opcode/type */
+	uint8_t		htype;		/* Hardware addr type */
+	uint8_t		hlen;		/* Hardware addr length */
+	uint8_t		hops;
+	uint32_t	xid;		/* Transaction ID */
+	uint16_t	secs;
+	uint16_t	unused;		/* Flag bits */
+	struct in_addr	ciaddr;		/* Client IP address */
+	struct in_addr	yiaddr;		/* Your client IP address */
+	struct in_addr	siaddr;		/* Server IP address */
+	struct in_addr	giaddr;		/* Gateway IP address */
+	unsigned char	chaddr[16];	/* Client hardware address */
+	char		sname[64];	/* Server name */
+	char		file[128];	/* Boot filename */
+	char		vend[64];	/* Vendor specific area */
+};
+
 __dead static void
 usage(void)
 {
 	extern char *__progname;
 
-	fprintf(stderr, "usage: %s [-u] [-c client-address] [-H chaddr]\n",
+	fprintf(stderr, "usage: %s [-Bu] [-c client-address] [-H chaddr]\n",
 	    __progname);
 	fprintf(stderr, "\t[-l local-addr] [-p local-port] [-P relay-port]\n");
 	fprintf(stderr, "\t[-s siaddr] [-t type] [-T lt]"
@@ -259,8 +277,48 @@ dhcp_send_wol(int s, const struct ether_addr *Ha, const struct ether_addr *ea,
 	assert(i <= nitems(iov));
 
 	if (writev(s, iov, i) == -1)
-		err(1, "write");
+		err(1, "dhcp send");
 }
+
+static void
+bootp_send_wol(int s, const struct ether_addr *Ha, const struct ether_addr *ea,
+    const struct in_addr *yiaddr, const struct in_addr *siaddr,
+    const struct in_addr *giaddr)
+{
+	struct iovec iov[2];
+	struct bootp_packet p;
+	struct ether_addr wol[WOL_EA_NUM];
+	size_t i;
+
+	memset(&p, 0, sizeof(p));
+
+	p.op = BOOTREPLY;
+	p.htype = HTYPE_ETHER;
+	p.hlen = sizeof(*Ha);
+	p.hops = 1;
+	p.xid = htonl(arc4random());
+	p.secs = htons(7);
+	/* p.ciaddr = htonl(0); */
+	p.yiaddr = *yiaddr;
+	p.siaddr = *siaddr;
+	p.giaddr = *giaddr;
+	memcpy(p.chaddr, Ha, sizeof(*Ha));
+
+	/* the first address is the broadcast address */
+	memset(&wol[0], 0xff, sizeof(wol[0]));
+	for (i = 1; i < nitems(wol); i++) {
+		wol[i] = *ea;
+	}
+
+	iov[0].iov_base = &p;
+	iov[0].iov_len = sizeof(p);
+	iov[1].iov_base = wol;
+	iov[1].iov_len = sizeof(wol);
+
+	if (writev(s, iov, nitems(iov)) == -1)
+		err(1, "bootp send");
+}
+
 
 #define streq(_a, _b) (strcmp((_a), (_b)) == 0)
 
@@ -341,11 +399,15 @@ main(int argc, char *argv[])
 	uint16_t flags = BOOTP_BROADCAST;
 	uint8_t dtype = 0xff;
 	uint32_t lt = htonl(0);
+	int dhcp = 1;
 
 	int s;
 
-	while ((ch = getopt(argc, argv, "c:h:H:l:p:P:r:s:t:T:u")) != -1) {
+	while ((ch = getopt(argc, argv, "Bc:h:H:l:p:P:r:s:t:T:u")) != -1) {
 		switch (ch) {
+		case 'B':
+			dhcp = 0;
+			break;
 		case 'c':
 			yhost = optarg;
 			break;
@@ -426,8 +488,11 @@ main(int argc, char *argv[])
 		err(1, "getsockname");
 	giaddr = sin.sin_addr;
 
-	dhcp_send_wol(s, &Ha, &ea, &yiaddr, &siaddr, &giaddr, flags, dtype,
-	    lt);
+	if (dhcp) {
+		dhcp_send_wol(s, &Ha, &ea, &yiaddr, &siaddr, &giaddr,
+		    flags, dtype, lt);
+	} else
+		bootp_send_wol(s, &Ha, &ea, &yiaddr, &siaddr, &giaddr);
 
 	return (0);
 }
