@@ -8,12 +8,11 @@ the need to enable directed broadcast on the final router.
 ## Usage
 
 ```
-     wolod [-u] [-c client-address] [-H chaddr] [-l local-address]
-           [-p local-port] [-P relay-port] [-t dhcp-msg-type] -h mac-address
-           -r relay-address
+usage: wolod [-Bu] [-c client-address] [-H chaddr]
+        [-l local-addr] [-p local-port] [-P relay-port]
+        [-s siaddr] [-t type] [-T lt] -r relay -h mac-addr
 ```
 
 ## Requirements
 
 - This builds and runs on OpenBSD
-- probably `eait-itig/dhcp-relay` on the last router
