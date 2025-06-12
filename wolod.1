@@ -22,7 +22,7 @@
 .Nd Wake-on-LAN (WoL) over DHCP
 .Sh SYNOPSIS
 .Nm wolod
-.Op Fl Bu
+.Op Fl BLu
 .Op Fl c Ar client-address
 .Op Fl H Ar chaddr
 .Op Fl l Ar local-address
@@ -64,6 +64,10 @@ By default
 uses the MAC address specified with
 .Fl h
 as the client hardware address.
+.It Fl L
+Use
+.Dv SO_BINDANY
+to enable sending the packet from any source address.
 .It Fl l Ar local-address
 Specify
 .Ar local-address

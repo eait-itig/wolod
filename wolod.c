@@ -39,8 +39,11 @@
 #include <errno.h>
 #include <err.h>
 #include <assert.h>
+#include <pwd.h>
 
 #include "dhcp.h"
+
+#define DHCP_USER "_dhcp"
 
 struct bootp_packet {
 	uint8_t		op;		/* Message opcode/type */
@@ -65,7 +68,7 @@ usage(void)
 {
 	extern char *__progname;
 
-	fprintf(stderr, "usage: %s [-Bu] [-c client-address] [-H chaddr]\n",
+	fprintf(stderr, "usage: %s [-BLu] [-c client-address] [-H chaddr]\n",
 	    __progname);
 	fprintf(stderr, "\t[-l local-addr] [-p local-port] [-P relay-port]\n");
 	fprintf(stderr, "\t[-s siaddr] [-t type] [-T lt]"
@@ -110,7 +113,7 @@ dhcp_connect(int s, const char *rhost, const char *rport)
 
 static int
 dhcp_connection(const char *lhost, const char *lport,
-    const char *rhost, const char *rport)
+    const char *rhost, const char *rport, int bindany)
 {
 	struct addrinfo hints, *res, *res0;
 	int error;
@@ -131,6 +134,15 @@ dhcp_connection(const char *lhost, const char *lport,
 		if (s == -1) {
 			cause = "socket";
 			serrno = errno;
+			continue;
+		}
+
+		if (bindany && setsockopt(s, SOL_SOCKET, SO_BINDANY,
+		    &bindany, sizeof(bindany)) == -1) {
+			cause = "bindany";
+			serrno = errno;
+			close(s);
+			s = -1;
 			continue;
 		}
 
@@ -400,10 +412,15 @@ main(int argc, char *argv[])
 	uint8_t dtype = 0xff;
 	uint32_t lt = htonl(0);
 	int dhcp = 1;
+	int bindany = 0;
+	int uid;
+	struct passwd *pw = NULL;
+
+	uid = geteuid();
 
 	int s;
 
-	while ((ch = getopt(argc, argv, "Bc:h:H:l:p:P:r:s:t:T:u")) != -1) {
+	while ((ch = getopt(argc, argv, "Bc:h:H:Ll:p:P:r:s:t:T:u")) != -1) {
 		switch (ch) {
 		case 'B':
 			dhcp = 0;
@@ -416,6 +433,11 @@ main(int argc, char *argv[])
 			break;
 		case 'H':
 			Hhost = optarg;
+			break;
+		case 'L':
+			if (uid != 0)
+				errx(1, "must be root to use bindany");
+			bindany = 1;
 			break;
 		case 'l':
 			lhost = optarg;
@@ -459,8 +481,24 @@ main(int argc, char *argv[])
 	if (Hhost != NULL && flags == 0)
 		errx(1, "-H and -u are incompatible");
 
-	s = dhcp_connection(lhost, lport, rhost, rport);
+	if (uid == 0) {
+		pw = getpwnam(DHCP_USER);
+		if (pw == NULL)
+			errx(1, "no %s user", DHCP_USER);
+	}
+
+	s = dhcp_connection(lhost, lport, rhost, rport, bindany);
 	/* error handled by dhcp_connection */
+
+	if (shutdown(s, SHUT_RD) == -1)
+		err(1, "shutdown dhcp recv");
+
+	if (pw != NULL) {
+		if (setgroups(1, &pw->pw_gid) == -1 ||
+		    setresgid(pw->pw_gid, pw->pw_gid, pw->pw_gid) == -1 ||
+		    setresuid(pw->pw_uid, pw->pw_uid, pw->pw_uid) == -1)
+			err(1, "unable to revoke privs to %s", DHCP_USER);
+	}
 
 	if (yhost != NULL) {
 		ip_resolve(yhost, &yiaddr);
