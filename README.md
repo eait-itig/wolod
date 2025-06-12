@@ -8,7 +8,7 @@ the need to enable directed broadcast on the final router.
 ## Usage
 
 ```
-usage: wolod [-Bu] [-c client-address] [-H chaddr]
+usage: wolod [-LBu] [-c client-address] [-H chaddr]
         [-l local-addr] [-p local-port] [-P relay-port]
         [-s siaddr] [-t type] [-T lt] -r relay -h mac-addr
 ```
