@@ -52,7 +52,7 @@ struct bootp_packet {
 	uint8_t		hops;
 	uint32_t	xid;		/* Transaction ID */
 	uint16_t	secs;
-	uint16_t	unused;		/* Flag bits */
+	uint16_t	flags;		/* Flag bits */
 	struct in_addr	ciaddr;		/* Client IP address */
 	struct in_addr	yiaddr;		/* Your client IP address */
 	struct in_addr	siaddr;		/* Server IP address */
@@ -295,7 +295,7 @@ dhcp_send_wol(int s, const struct ether_addr *Ha, const struct ether_addr *ea,
 static void
 bootp_send_wol(int s, const struct ether_addr *Ha, const struct ether_addr *ea,
     const struct in_addr *yiaddr, const struct in_addr *siaddr,
-    const struct in_addr *giaddr)
+    const struct in_addr *giaddr, uint16_t flags)
 {
 	struct iovec iov[2];
 	struct bootp_packet p;
@@ -310,6 +310,7 @@ bootp_send_wol(int s, const struct ether_addr *Ha, const struct ether_addr *ea,
 	p.hops = 1;
 	p.xid = htonl(arc4random());
 	p.secs = htons(7);
+	p.flags = htons(flags);
 	/* p.ciaddr = htonl(0); */
 	p.yiaddr = *yiaddr;
 	p.siaddr = *siaddr;
@@ -529,8 +530,10 @@ main(int argc, char *argv[])
 	if (dhcp) {
 		dhcp_send_wol(s, &Ha, &ea, &yiaddr, &siaddr, &giaddr,
 		    flags, dtype, lt);
-	} else
-		bootp_send_wol(s, &Ha, &ea, &yiaddr, &siaddr, &giaddr);
+	} else {
+		bootp_send_wol(s, &Ha, &ea, &yiaddr, &siaddr, &giaddr,
+		    flags);
+	}
 
 	return (0);
 }
